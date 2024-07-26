@@ -2,6 +2,7 @@
 # Main playbook to deploy the component
 # The different plays just serve as logical sepparations between deployment phases. If the "hosts" parameter of different plays is the same, feel free to join them
 # This sample file will try to use as many public task files as possible, but your component may not need many of them. Feel free to use just the ones you need.
+
 - name: "STAGE 1: Apply IAC to deploy the component"
   hosts: localhost
   gather_facts: false
@@ -29,27 +30,13 @@
     - name: Prepare terraform working directory
       ansible.builtin.include_tasks: "{{ workspace }}/.global/cac/terraform_workdir.yaml"
 
-    # Sometimes you may not need to deploy any new terraform component, but previous component outputs are still available.
-    # - name: Retrieve terraform outputs
-    #   ansible.builtin.shell:
-    #   args:
-    #     chdir: "{{ workspace }}/.terraform/"
-    #     cmd: "set -o pipefail && terraform output --json | jq 'with_entries(.value |= .value)'"
-    #     executable: /bin/bash
-    #   register: terraform_outputs
-    #   changed_when: false
-    # - name: Set Terraform outputs as playbook facts
-    #   ansible.builtin.set_fact:
-    #     bastion_ip: "{{ (terraform_outputs.stdout | from_json)['tn_bastion-ips'][site_networks_id.default | string] }}"
-    #     node_ips: "{{ (terraform_outputs.stdout | from_json)[one_open5gs_oneKE + '-node_ips'] }}"
-
 
     # More than just a simple terraform apply. Templates all manifests from {{ component_type }}/code/{{ site_hypervisor }}/iac/*.tf.j2, writes them
     # at .terraform and runs a terraform apply.
     # Task also has error handling, and if apply fails, will send a notification to the TNLCM with the stderr, and text from {{ component_type }}/result_templates/fail_result.md.j2
     - name: Terraform apply
       ansible.builtin.include_tasks: "{{ workspace }}/.global/cac/terraform_apply.yaml"
-
+ 
 
 
 # Post-terraform preliminary tasks. Still no component configuration.
@@ -78,10 +65,10 @@
         id: "{{ (terraform_outputs.stdout | from_json)[entity_name + '-id'] }}"
         vnet_id: "{{ (terraform_outputs.stdout | from_json)[one_vm_kvm_networks[0] + '-id'] | string}}"
 
-    # Inclusion of a task file to to still do preliminatory tasks out of the main playbook
-    - name: Fetch cluster node IPs
-      ansible.builtin.include_tasks: "{{ workspace }}/{{ component_type }}/code/{{ site_hypervisor }}/cac/01_pre/node_ip.yaml"
-      loop: "{{ cluster_roles | dict2items }}"
+#    # Inclusion of a task file to to still do preliminatory tasks out of the main playbook
+#    - name: Fetch cluster node IPs
+#      ansible.builtin.include_tasks: "{{ workspace }}/{{ component_type }}/code/{{ site_hypervisor }}/cac/01_pre/node_ip.yaml"
+#      loop: "{{ cluster_roles | dict2items }}"
 
     # Include the deployed component/s as Inventory host/s.
     - name: Add new VM to Ansible Inventory
