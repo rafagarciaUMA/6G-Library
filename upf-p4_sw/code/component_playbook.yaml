@@ -84,6 +84,7 @@
       loop: "{{ node_ips | dict2items }}"
 
 
+# RAFA: This stage is where I am going to change more things.
 # Configuration play. Modules executed in the deployment component.
 # Remember in Ansible variables are loaded in each host, so if you change the host, you can either
 # - Set the variables again (with the load_variables.yaml global taskfile or similar)
@@ -123,9 +124,13 @@
       loop:
         - "{{ hostvars['localhost']['tn_ssh_public_key'] }}"
 
+    # RAFA: Here I am going to do my task to configure all of the components.
+    - name: UPF-P4 SW install
+      ansible.builtin.include_tasks: "{{ workspace }}/{{ component_type }}/code/one/cac/02_install/upf-p4_install.yaml"
+
     # Example of inclued task files common to all hypervisors, like helm charts, or bash/python/ruby sripts.
-    - name: Helm install
-      ansible.builtin.include_tasks: "{{ workspace }}/{{ component_type }}/code/all/cac/helm_install.yaml"
+    #- name: Helm install
+    #  ansible.builtin.include_tasks: "{{ workspace }}/{{ component_type }}/code/all/cac/helm_install.yaml"
 
 
 # Final phase of the deployments. Gather information and publish it

@@ -1,0 +1,112 @@
+# In this file I will put all the tasks necessary for the deployment and configuration of the UPF-P4 SW (+ Open5GS) component.
+- name: Install docker engine
+  become: true
+  tasks:
+  - name: Install required packages
+    apt:
+      name: 
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - gnupg
+        - lsb-release
+      state: present
+      update_cache: yes
+
+  - name: Add Docker GPG apt Key
+    apt_key:
+      url: https://download.docker.com/linux/ubuntu/gpg
+      state: present
+
+  - name: Add Docker repository
+    apt_repository:
+      #repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"    # TODO: I think that the fact ansible_distribution_release is deactivated (check it)
+      repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu jammy stable"
+      state: present
+
+  - name: Update apt cache
+    apt:
+      update_cache: yes
+
+  - name: Install Docker Engine
+    apt:
+      name: 
+        - docker-ce
+        - docker-ce-cli
+        - containerd.io
+        - docker-buildx-plugin
+        - docker-compose-plugin
+      state: present
+
+  - name: Add jenkins user to docker group
+    user:
+      name: jenkins
+      groups: docker
+      append: yes
+
+  - name: Set correct permissions for Docker socket
+    file:
+      path: /var/run/docker.sock
+      mode: '0666'
+
+  - name: Restart Docker service
+    systemd:
+      name: docker
+      state: restarted
+
+
+- name: Configure GitHub Container Registry authentication
+  become: true
+  tasks:
+  - name: Ensure .docker directory exists
+    file:
+      path: /home/jenkins/.docker
+      state: directory
+      mode: '0700'
+      owner: jenkins
+      group: jenkins
+
+  - name: Create Docker config file
+    template:
+      src: "{{ workspace }}/{{ component_type }}/code/one/cac/02_install/docker_config.json.j2"
+      #src: docker_config.json.j2
+      dest: /home/jenkins/.docker/config.json
+      mode: '0600'
+      owner: jenkins
+      group: jenkins
+
+
+- name: Copy docker-compose file
+  become: true
+  tasks:
+  - name: Copy docker-compose.yaml file
+    copy:
+      src: "{{ workspace }}/{{ component_type }}/code/one/cac/02_install/docker-compose.yaml"
+      #src: docker-compose.yaml
+      dest: "/home/jenkins/docker-compose.yaml"
+      owner: jenkins
+      group: jenkins
+      mode: '0644'
+
+# TODO: It is best to run docker compose with the community.docker.docker_compose module, but this module has to be previously installed with ansible-galaxy
+#- name: Run docker-compose
+#  hosts: all
+#  become: true
+#  become_user: jenkins
+#  tasks:
+#  - name: Run docker compose
+#    community.docker.docker_compose:
+#      project_src: /home/jenkins
+#      files:
+#        - docker-compose.yaml
+#      state: present
+
+- name: Run docker-compose
+  hosts: all
+  become: true
+  become_user: jenkins
+  tasks:
+  - name: Execute docker-compose up
+    command: docker compose -f /home/jenkins/docker-compose.yaml up -d
+    args:
+      chdir: /home/jenkins
